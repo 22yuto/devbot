@@ -29,21 +29,21 @@ export default function ChatbotPage() {
     setIsLoading(true);
 
     try {
-      // APIを呼び出す
-      const response = await fetch('/api/chat', {
+      const url = process.env.NEXT_PUBLIC_SERVER_URL || '/api/chat';
+      const response = await fetch(url + '/api/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ message: input }),
-      });
+      })
 
       if (!response.ok) {
         throw new Error('APIリクエストに失敗しました');
       }
 
       const data = await response.json();
-
+      console.log('data:', data);
       // ボットの応答を追加
       const botResponse: Message = {
         role: 'assistant',
