@@ -7,6 +7,7 @@ import Image from 'next/image';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  url?: string;
 }
 
 export default function ChatbotPage() {
@@ -29,14 +30,14 @@ export default function ChatbotPage() {
     setIsLoading(true);
 
     try {
-      const url = process.env.NEXT_PUBLIC_SERVER_URL || '/api/chat';
-      const response = await fetch(url + '/api/test', {
+      const url = process.env.NEXT_PUBLIC_SERVER_URL;
+      const response = await fetch(url + '/chat/notion', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ message: input }),
-      })
+      });
 
       if (!response.ok) {
         throw new Error('APIリクエストに失敗しました');
@@ -44,11 +45,22 @@ export default function ChatbotPage() {
 
       const data = await response.json();
       console.log('data:', data);
+      
       // ボットの応答を追加
+      let content = '';
+      if (data.message) {
+        content += data.message;
+      }
+      
       const botResponse: Message = {
         role: 'assistant',
-        content: data.response
+        content: content || 'レスポンスが空でした'
       };
+      
+      // URL情報があればbotResponseに追加
+      if (data.url) {
+        botResponse.url = data.url;
+      }
 
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
@@ -59,6 +71,61 @@ export default function ChatbotPage() {
         content: 'すみません、エラーが発生しました。後でもう一度お試しください。'
       };
       setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 保存されたチャットを取得する関数
+  const fetchSavedChats = async () => {
+    setIsLoading(true);
+    try {
+      const url = process.env.NEXT_PUBLIC_SERVER_URL;
+      const response = await fetch(url + '/chat/all', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('チャット履歴の取得に失敗しました');
+      }
+
+      const data = await response.json();
+      console.log('data:', data);
+      // if (data.history && data.history.length > 0) {
+      //   // 履歴データを適切な形式に変換
+      //   const historyMessages: Message[] = [];
+        
+      //   data.history.forEach((item: any) => {
+      //     if (item.userMessage) {
+      //       historyMessages.push({ 
+      //         role: 'user', 
+      //         content: item.userMessage 
+      //       });
+      //     }
+      //     if (item.botResponse) {
+      //       historyMessages.push({ 
+      //         role: 'assistant', 
+      //         content: item.botResponse 
+      //       });
+      //     }
+      //   });
+        
+      //   setMessages([
+      //     { role: 'assistant', content: 'こんにちは！どのようにお手伝いできますか？' },
+      //     ...historyMessages
+      //   ]);
+      // } else {
+      //   // 履歴がない場合のメッセージ
+      //   setMessages([
+      //     { role: 'assistant', content: 'こんにちは！どのようにお手伝いできますか？' },
+      //     { role: 'assistant', content: '保存されたチャット履歴はありません。' }
+      //   ]);
+      // }
+    } catch (error) {
+      console.error('Error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -123,9 +190,21 @@ export default function ChatbotPage() {
             </div>
             <h1 className='text-xl font-bold text-gray-800'>Devbot</h1>
           </div>
-          <Link href='/' className='text-gray-600 hover:text-gray-900'>
-            ホームに戻る
-          </Link>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={fetchSavedChats}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              </svg>
+              保存チャットを取得
+            </button>
+            <Link href='/' className='text-gray-600 hover:text-gray-900'>
+              ホームに戻る
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -153,6 +232,21 @@ export default function ChatbotPage() {
                   <pre className="whitespace-pre-wrap break-words font-sans text-base">
                     {message.content}
                   </pre>
+                  
+                  {/* URLがある場合は関連ページとして表示 */}
+                  {message.url && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-gray-600 text-sm mb-1">関連ページ：</p>
+                      <a 
+                        href={message.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline text-sm break-all"
+                      >
+                        {message.url}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
